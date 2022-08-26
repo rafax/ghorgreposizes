@@ -12,9 +12,11 @@ import (
 	"golang.org/x/oauth2"
 )
 
-var pageSizeFlag = flag.Int("page-size", 100, "Size of page to request from GitHub API")
-var orgNameFlag = flag.String("org-name", "", "Size of page to request from GitHub API")
-var apiTokenFlag = flag.String("api-token", "", "Size of page to request from GitHub API")
+var (
+	pageSizeFlag = flag.Int("page-size", 100, "Size of page to request from GitHub API")
+	orgNameFlag  = flag.String("org-name", "", "Size of page to request from GitHub API")
+	apiTokenFlag = flag.String("api-token", "", "Size of page to request from GitHub API")
+)
 
 func main() {
 	flag.Parse()
@@ -39,7 +41,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("fetching repos failed: %v", err)
 		}
-		bar.Add(len(repos))
+		err = bar.Add(len(repos))
+		if err != nil {
+			log.Printf("error when updating progress bar [%v], continuing", err)
+		}
 		allRepos = append(allRepos, repos...)
 		if resp.NextPage == 0 {
 			break
