@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/google/go-github/v47 v47.0.0
 	github.com/inhies/go-bytesize v0.0.0-20220417184213-4913239db9cf
+	github.com/montanaflynn/stats v0.6.6
 	github.com/schollz/progressbar/v3 v3.9.0
 	golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be
 )

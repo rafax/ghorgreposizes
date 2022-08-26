@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/go-github/v47/github"
 	"github.com/inhies/go-bytesize"
+	"github.com/montanaflynn/stats"
 	"github.com/schollz/progressbar/v3"
 	"golang.org/x/oauth2"
 )
@@ -51,14 +52,36 @@ func main() {
 		}
 		opt.Page = resp.NextPage
 	}
+	fmt.Println()
+	fmt.Println("Done fetching, calculating size...")
 	sizeKB := 0
+	repoSizeBytes := []int{}
 	for _, r := range allRepos {
 		sizeKB += *r.Size
+		repoSizeBytes = append(repoSizeBytes, r.GetSize()*1024)
 	}
 	size, err := bytesize.Parse(fmt.Sprint(sizeKB, "KB"))
 	if err != nil {
 		log.Fatalf("calculating size failed: %v", err)
 	}
-	fmt.Println()
+	data := stats.LoadRawData(repoSizeBytes)
+	max, err := data.Max()
+	if err != nil {
+		log.Fatalf("getting max failed: %v", err)
+	}
+	p99, err := data.Percentile(99)
+	if err != nil {
+		log.Fatalf("getting p99 failed: %v", err)
+	}
+	p50, err := data.Percentile(50)
+	if err != nil {
+		log.Fatalf("getting p50 failed: %v", err)
+	}
+	mean, err := data.Mean()
+	if err != nil {
+		log.Fatalf("getting mean failed: %v", err)
+	}
+
 	fmt.Printf("Found %d repos for org %s, %s total size\n", len(allRepos), *orgNameFlag, size)
+	fmt.Printf("max: %v mean: %v p99: %v p50: %v\n", bytesize.New(max), bytesize.New(mean), bytesize.New(p99), bytesize.New(p50))
 }
