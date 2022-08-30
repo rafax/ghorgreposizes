@@ -25,44 +25,19 @@ func main() {
 	if *orgNameFlag == "" {
 		log.Fatalln("org-name flag is required")
 	}
-	if *apiTokenFlag == "" {
-		log.Fatalln("api-token flag is required")
-	}
+	org := *orgNameFlag
 	ctx := context.Background()
-	var err error
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: *apiTokenFlag},
-	)
-	tc := oauth2.NewClient(ctx, ts)
-	var client *github.Client
-	if *baseUrlFlag != "" {
-		client, err = github.NewEnterpriseClient(*baseUrlFlag, "", tc)
-		if err != nil {
-			log.Fatalf("creating GHE client failed: %v", err)
-		}
-	} else {
-		client = github.NewClient(tc)
-	}
-	bar := progressbar.Default(-1, "Fetching repos for org "+*orgNameFlag)
-	opt := &github.RepositoryListByOrgOptions{Type: "public", ListOptions: github.ListOptions{PerPage: *pageSizeFlag}}
-	var allRepos []*github.Repository
-	for {
-		repos, resp, err := client.Repositories.ListByOrg(ctx, *orgNameFlag, opt)
-		if err != nil {
-			log.Fatalf("fetching repos failed: %v", err)
-		}
-		err = bar.Add(len(repos))
-		if err != nil {
-			log.Printf("error when updating progress bar [%v], continuing", err)
-		}
-		allRepos = append(allRepos, repos...)
-		if resp.NextPage == 0 {
-			break
-		}
-		opt.Page = resp.NextPage
-	}
+	client := buildClient(ctx)
+	allRepos := fetchReposForOrg(ctx, org, client)
 	fmt.Println()
 	fmt.Println("Done fetching, calculating size...")
+	size, max, p99, p50, mean := calculateStats(allRepos)
+
+	fmt.Printf("Found %d repos for org %s, %s total size\n", len(allRepos), *orgNameFlag, size)
+	fmt.Printf("max: %v mean: %v p99: %v p50: %v\n", bytesize.New(max), bytesize.New(mean), bytesize.New(p99), bytesize.New(p50))
+}
+
+func calculateStats(allRepos []*github.Repository) (bytesize.ByteSize, float64, float64, float64, float64) {
 	sizeKB := 0
 	repoSizeBytes := []int{}
 	for _, r := range allRepos {
@@ -90,7 +65,45 @@ func main() {
 	if err != nil {
 		log.Fatalf("getting mean failed: %v", err)
 	}
+	return size, max, p99, p50, mean
+}
 
-	fmt.Printf("Found %d repos for org %s, %s total size\n", len(allRepos), *orgNameFlag, size)
-	fmt.Printf("max: %v mean: %v p99: %v p50: %v\n", bytesize.New(max), bytesize.New(mean), bytesize.New(p99), bytesize.New(p50))
+func fetchReposForOrg(ctx context.Context, org string, client *github.Client) []*github.Repository {
+	bar := progressbar.Default(-1, "Fetching repos for org "+org)
+	opt := &github.RepositoryListByOrgOptions{Type: "public", ListOptions: github.ListOptions{PerPage: *pageSizeFlag}}
+	var allRepos []*github.Repository
+	for {
+		repos, resp, err := client.Repositories.ListByOrg(ctx, org, opt)
+		if err != nil {
+			log.Fatalf("fetching repos failed: %v", err)
+		}
+		err = bar.Add(len(repos))
+		if err != nil {
+			log.Printf("error when updating progress bar [%v], continuing", err)
+		}
+		allRepos = append(allRepos, repos...)
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.Page = resp.NextPage
+	}
+	return allRepos
+}
+
+func buildClient(ctx context.Context) *github.Client {
+	if *apiTokenFlag == "" {
+		log.Fatalln("api-token flag is required")
+	}
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: *apiTokenFlag},
+	)
+	tc := oauth2.NewClient(ctx, ts)
+	if *baseUrlFlag != "" {
+		client, err := github.NewEnterpriseClient(*baseUrlFlag, "", tc)
+		if err != nil {
+			log.Fatalf("creating GHE client failed: %v", err)
+		}
+		return client
+	}
+	return github.NewClient(tc)
 }
