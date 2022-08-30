@@ -17,6 +17,7 @@ var (
 	pageSizeFlag = flag.Int("page-size", 100, "Size of page to request from GitHub API")
 	orgNameFlag  = flag.String("org-name", "", "Size of page to request from GitHub API")
 	apiTokenFlag = flag.String("api-token", "", "Size of page to request from GitHub API")
+	baseUrlFlag  = flag.String("enterprise-base-url", "", "Base URL of GitHub Enterprise instance")
 )
 
 func main() {
@@ -28,12 +29,20 @@ func main() {
 		log.Fatalln("api-token flag is required")
 	}
 	ctx := context.Background()
+	var err error
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: *apiTokenFlag},
 	)
 	tc := oauth2.NewClient(ctx, ts)
-
-	client := github.NewClient(tc)
+	var client *github.Client
+	if *baseUrlFlag != "" {
+		client, err = github.NewEnterpriseClient(*baseUrlFlag, "", tc)
+		if err != nil {
+			log.Fatalf("creating GHE client failed: %v", err)
+		}
+	} else {
+		client = github.NewClient(tc)
+	}
 	bar := progressbar.Default(-1, "Fetching repos for org "+*orgNameFlag)
 	opt := &github.RepositoryListByOrgOptions{Type: "public", ListOptions: github.ListOptions{PerPage: *pageSizeFlag}}
 	var allRepos []*github.Repository
