@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"sort"
 
 	"github.com/google/go-github/v47/github"
 	"github.com/inhies/go-bytesize"
@@ -20,6 +21,19 @@ var (
 	baseUrlFlag  = flag.String("enterprise-base-url", "", "Base URL of GitHub Enterprise instance")
 )
 
+type RepoSize struct {
+	name string
+	size bytesize.ByteSize
+}
+type RepoStats struct {
+	TotalSize bytesize.ByteSize
+	MaxSize   float64
+	MeanSize  float64
+	P99       float64
+	P50       float64
+	Largest10 []RepoSize
+}
+
 func main() {
 	flag.Parse()
 	if *orgNameFlag == "" {
@@ -31,13 +45,17 @@ func main() {
 	allRepos := fetchReposForOrg(ctx, org, client)
 	fmt.Println()
 	fmt.Println("Done fetching, calculating size...")
-	size, max, p99, p50, mean := calculateStats(allRepos)
+	rs := calculateStats(allRepos)
 
-	fmt.Printf("Found %d repos for org %s, %s total size\n", len(allRepos), *orgNameFlag, size)
-	fmt.Printf("max: %v mean: %v p99: %v p50: %v\n", bytesize.New(max), bytesize.New(mean), bytesize.New(p99), bytesize.New(p50))
+	fmt.Printf("Found %d repos for org %s, %s total size\n", len(allRepos), *orgNameFlag, rs.TotalSize)
+	fmt.Printf("max: %v mean: %v p99: %v p50: %v\n", bytesize.New(rs.MaxSize), bytesize.New(rs.MeanSize), bytesize.New(rs.P99), bytesize.New(rs.P50))
+	fmt.Print("Top 10 repos by size:\n")
+	for _, r := range rs.Largest10 {
+		fmt.Printf("%s: %s\n", r.name, r.size)
+	}
 }
 
-func calculateStats(allRepos []*github.Repository) (bytesize.ByteSize, float64, float64, float64, float64) {
+func calculateStats(allRepos []*github.Repository) RepoStats {
 	sizeKB := 0
 	repoSizeBytes := []int{}
 	for _, r := range allRepos {
@@ -65,7 +83,16 @@ func calculateStats(allRepos []*github.Repository) (bytesize.ByteSize, float64, 
 	if err != nil {
 		log.Fatalf("getting mean failed: %v", err)
 	}
-	return size, max, p99, p50, mean
+	sort.Slice(allRepos, func(i, j int) bool { return allRepos[i].GetSize() > allRepos[j].GetSize() })
+	top10 := []RepoSize{}
+	for _, r := range allRepos[:10] {
+		size, err := bytesize.Parse(fmt.Sprint(r.GetSize(), "KB"))
+		if err != nil {
+			log.Fatalf("calculating size failed: %v", err)
+		}
+		top10 = append(top10, RepoSize{name: r.GetName(), size: size})
+	}
+	return RepoStats{TotalSize: size, MaxSize: max, MeanSize: mean, P99: p99, P50: p50, Largest10: top10}
 }
 
 func fetchReposForOrg(ctx context.Context, org string, client *github.Client) []*github.Repository {
