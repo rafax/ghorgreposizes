@@ -16,8 +16,8 @@ import (
 
 var (
 	pageSizeFlag = flag.Int("page-size", 100, "Size of page to request from GitHub API")
-	orgNameFlag  = flag.String("org-name", "", "Size of page to request from GitHub API")
-	apiTokenFlag = flag.String("api-token", "", "Size of page to request from GitHub API")
+	orgNameFlag  = flag.String("org-name", "", "GitHub organization name")
+	apiTokenFlag = flag.String("api-token", "", "GitHub API token")
 	baseUrlFlag  = flag.String("enterprise-base-url", "", "Base URL of GitHub Enterprise instance")
 )
 
