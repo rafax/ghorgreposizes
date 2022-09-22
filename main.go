@@ -70,7 +70,6 @@ func main() {
 		}
 		client.Pagelen = 100
 		allRepos := fetchReposForWorkspace(ctx, ws, client)
-		fmt.Println(allRepos)
 		fmt.Println()
 		fmt.Println("Done fetching, calculating size...")
 		rs := calculateBitbucketStats(allRepos)
