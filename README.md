@@ -1,18 +1,23 @@
 # ghorgreposizes
-Get the total size of public repositories owned by a Github org.
+Get the total size of repositories owned by a Github org or Bitbucket Cloud workspace.
 
 For github.com, use:
 ```
-go run main.go --org-name=github --api-token=ghp_YOURTOKEN
+go run main.go --gh-org-name=github --gh-api-token=ghp_YOURTOKEN
 ```
 where `api-token` is a token [accepted by go-github API client](https://github.com/google/go-github#authentication).
 
-For GitHub enterprise, use:
+For GitHub Enterprise, use:
 ```
-go run main.go --org-name=github --api-token=ghp_YOURTOKEN  --enterprise-base-url=https://ghe.example.org
+go run main.go --gh-org-name=github --gh-api-token=ghp_YOURTOKEN  --gh-enterprise-base-url=https://ghe.example.org
 ```
 where `api-token` is a token [accepted by go-github API client](https://github.com/google/go-github#authentication) and `enterprise-base-url` is the base URL of your GitHub Enterprise instance.
 
+For Bitbucket Cloud, use:
+```
+go run main.go --bb-workspace-name=YOUR_WORKSPACE --bb-app-password=APP_PASSWORD --bb-user-name=USERNAME
+```
+where `YOUR_WORKSPACE` is the name of your Bitbucket Cloud workspace, `APP_PASSWORD` is your Atlassian [App Password](https://support.atlassian.com/bitbucket-cloud/docs/app-passwords/) and USERNAME is your Atlassian user name.
 
 Sample output:
 ```
