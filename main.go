@@ -66,7 +66,7 @@ func main() {
 		client, err := bitbucket.New(*bitbucketUserNameFlag, *bitbucketAppPasswordFlag)
 
 		if err != nil {
-			log.Fatalf("creating BitBucket client failed: %v", err)
+			log.Fatalf("creating Bitbucket client failed: %v", err)
 		}
 		client.Pagelen = 100
 		allRepos := fetchReposForWorkspace(ctx, ws, client)
