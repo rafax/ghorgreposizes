@@ -74,7 +74,7 @@ func main() {
 		fmt.Println("Done fetching, calculating size...")
 		rs := calculateBitbucketStats(allRepos)
 
-		fmt.Printf("Found %d repos for workspace %s, %s total size\n", len(allRepos.Values), ws, rs.TotalSize)
+		fmt.Printf("Found %d repos for workspace %s, %s total size\n", len(allRepos), ws, rs.TotalSize)
 		fmt.Printf("max: %v mean: %v p99: %v p50: %v\n", bytesize.New(rs.MaxSize), bytesize.New(rs.MeanSize), bytesize.New(rs.P99), bytesize.New(rs.P50))
 		fmt.Print("Top 10 repos by size:\n")
 		for _, r := range rs.Largest10 {
@@ -83,10 +83,10 @@ func main() {
 	}
 }
 
-func calculateBitbucketStats(allRepos *bitbucket.Repositories) RepoStats {
+func calculateBitbucketStats(allRepos []*bitbucket.Repository) RepoStats {
 	sizeB := int64(0)
 	repoSizeBytes := []int64{}
-	for _, r := range allRepos.Values {
+	for _, r := range allRepos {
 		sizeB += *r.Size
 		repoSizeBytes = append(repoSizeBytes, *r.Size)
 	}
@@ -111,13 +111,13 @@ func calculateBitbucketStats(allRepos *bitbucket.Repositories) RepoStats {
 	if err != nil {
 		log.Fatalf("getting mean failed: %v", err)
 	}
-	sort.Slice(allRepos.Values, func(i, j int) bool { return allRepos.Values[i].GetSize() > allRepos.Values[j].GetSize() })
+	sort.Slice(allRepos, func(i, j int) bool { return allRepos[i].GetSize() > allRepos[j].GetSize() })
 	topN := 10
-	if len(allRepos.Values) < topN {
-		topN = len(allRepos.Values)
+	if len(allRepos) < topN {
+		topN = len(allRepos)
 	}
 	top10 := []RepoSize{}
-	for _, r := range allRepos.Values[:topN] {
+	for _, r := range allRepos[:topN] {
 		size, err := bytesize.Parse(fmt.Sprint(r.GetSize(), "B"))
 		if err != nil {
 			log.Fatalf("calculating size failed: %v", err)
@@ -127,18 +127,28 @@ func calculateBitbucketStats(allRepos *bitbucket.Repositories) RepoStats {
 	return RepoStats{TotalSize: size, MaxSize: max, MeanSize: mean, P99: p99, P50: p50, Largest10: top10}
 }
 
-func fetchReposForWorkspace(ctx context.Context, ws string, client *bitbucket.Client) *bitbucket.Repositories {
+func fetchReposForWorkspace(ctx context.Context, ws string, client *bitbucket.Client) []*bitbucket.Repository {
 	if *bitbucketUserNameFlag == "" {
 		log.Fatalln("bb-user-name flag is required")
 	}
 	if *bitbucketAppPasswordFlag == "" {
 		log.Fatalln("bb-app-password flag is required")
 	}
-	repos, _, err := client.Repositories.List(ws)
-	if err != nil {
-		log.Fatalf("getting max failed: %v", err)
+	allRepos := []*bitbucket.Repository{}
+	page := int64(1)
+	pagelen := int64(*pageSizeFlag)
+	for {
+		repos, _, err := client.Repositories.List(ws, bitbucket.ListOpts{Page: page, Pagelen: pagelen})
+		if err != nil {
+			log.Fatalf("getting max failed: %v", err)
+		}
+		allRepos = append(allRepos, repos.Values...)
+		if repos.GetNext() == "" {
+			break
+		}
+		page = *repos.Page + 1
 	}
-	return repos
+	return allRepos
 }
 
 func calculateStats(allRepos []*github.Repository) RepoStats {
